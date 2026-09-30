@@ -1,7 +1,7 @@
 import re
 
-text = "hello_world test_text Python_code"
+text = "Hello World Python 123"
 
-result = re.findall(r"[a-z]+_[a-z]+", text)
+result = re.findall(r"[A-Z][a-z]+", text)
 
 print(result)

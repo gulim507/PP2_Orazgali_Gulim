@@ -1,7 +1,7 @@
 import re
 
-text = "helloWorldPython"
+text = "HELLO hello Hello"
 
-result = re.sub(r"(?<!^)(?=[A-Z])", "_", text).lower()
+result = re.findall(r"hello", text, re.IGNORECASE)
 
 print(result)

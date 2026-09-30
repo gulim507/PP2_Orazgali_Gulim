@@ -1,7 +1,7 @@
 import re
 
-text = "Hello, world. How are you?"
+text = "Hello World How are you?"
 
-result = re.sub(r"[ ,.]", ":", text)
+result = re.split(r"\s", text)
 
 print(result)

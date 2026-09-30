@@ -1,7 +1,10 @@
 import re
 
-text = "HelloWorldPython"
+text = "The rain in Spain"
 
-result = re.sub(r"(?<!^)(?=[A-Z])", " ", text)
+result = re.search(r"\bS\w+", text)
 
-print(result)
+if result:
+    print(result.span())
+else:
+    print("Not found")

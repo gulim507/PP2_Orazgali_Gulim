@@ -1,8 +1,8 @@
 import re
 
-text = "ab"
+text = "hello"
 
-result = re.fullmatch(r"ab*", text)
+result = re.search(r"^hello$", text)
 
 if result:
     print("Match")

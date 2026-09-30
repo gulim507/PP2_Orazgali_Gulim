@@ -1,10 +1,7 @@
 import re
 
-text = "abb"
+text = "My phone number is 12345"
 
-result = re.fullmatch(r"ab{2,3}", text)
+result = re.findall(r"\d+", text)
 
-if result:
-    print("Match")
-else:
-    print("No match")
+print(result)

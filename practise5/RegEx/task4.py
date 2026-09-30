@@ -1,7 +1,7 @@
 import re
 
-text = "Hello World Python apple"
+text = "The rain in Spain"
 
-result = re.findall(r"[A-Z][a-z]+", text)
+result = re.findall(r"ai", text)
 
 print(result)

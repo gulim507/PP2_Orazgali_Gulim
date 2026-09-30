@@ -1,10 +1,10 @@
 import re
 
-text = "a123b"
+text = "The rain in Spain"
 
-result = re.fullmatch(r"a.*b", text)
+result = re.search(r"Spain", text)
 
 if result:
-    print("Match")
+    print("Found:", result.group())
 else:
-    print("No match")
+    print("Not found")

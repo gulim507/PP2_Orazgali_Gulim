@@ -2,7 +2,13 @@
 -- Extended pagination with sorting
 -- Reuses Practice8 pagination logic
 
-CREATE OR REPLACE FUNCTION get_contacts_page(
+DROP FUNCTION IF EXISTS get_contacts_page(
+    INTEGER,
+    INTEGER,
+    TEXT
+);
+
+CREATE FUNCTION get_contacts_page(
     p_limit INTEGER,
     p_offset INTEGER,
     p_sort_by TEXT
@@ -10,7 +16,9 @@ CREATE OR REPLACE FUNCTION get_contacts_page(
 RETURNS TABLE (
     id INTEGER,
     first_name VARCHAR,
-    phone VARCHAR
+    phone VARCHAR,
+    birthday DATE,
+    created_at TIMESTAMP
 )
 LANGUAGE plpgsql
 AS $$
@@ -29,7 +37,9 @@ BEGIN
                 ', ' ORDER BY p.id
             ),
             c.phone
-        )::VARCHAR
+        )::VARCHAR,
+        c.birthday,
+        c.created_at
     FROM contacts c
     LEFT JOIN phones p ON c.id = p.contact_id
     GROUP BY c.id
@@ -45,10 +55,6 @@ BEGIN
     OFFSET GREATEST(p_offset, 0);
 END;
 $$;
-
-
--- Filter contacts by group with pagination
-
 CREATE OR REPLACE FUNCTION get_contacts_by_group(
     p_group_name VARCHAR,
     p_limit INTEGER,
@@ -61,8 +67,10 @@ RETURNS TABLE (
     email VARCHAR,
     group_name VARCHAR
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 AS $$
+BEGIN
+    RETURN QUERY
     SELECT
         c.id,
         c.first_name,
@@ -74,13 +82,14 @@ AS $$
             c.phone
         )::VARCHAR,
         c.email,
-        g.name
+        g.name::VARCHAR
     FROM contacts c
     JOIN groups g ON c.group_id = g.id
     LEFT JOIN phones p ON c.id = p.contact_id
     WHERE g.name = p_group_name
     GROUP BY c.id, g.name
-    ORDER BY c.first_name, c.id
+    ORDER BY c.first_name
     LIMIT GREATEST(p_limit, 1)
     OFFSET GREATEST(p_offset, 0);
+END;
 $$;

@@ -43,6 +43,8 @@ def show_contacts():
             print("ID:", contact[0])
             print("Name:", contact[1])
             print("Phone:", contact[2])
+            print("Birthday:", contact[3])
+            print("Date added:", contact[4])
             print("--------------------")
 
         total_pages = (total + limit - 1) // limit

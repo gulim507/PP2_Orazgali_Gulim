@@ -51,97 +51,186 @@ def import_contacts():
     try:
         with open("contacts.json", "r") as file:
             contacts = json.load(file)
+
+        if not isinstance(contacts, list):
+            print("Invalid JSON format!")
+            return
+
     except FileNotFoundError:
         print("JSON file not found!")
         return
+
     except json.JSONDecodeError:
         print("Invalid JSON file!")
         return
 
-    for contact in contacts:
-        name = contact["first_name"]
+    conn = get_connection()
 
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT id FROM contacts WHERE first_name = %s LIMIT 1",
-                    (name,)
-                )
+    try:
+        for contact in contacts:
+            try:
+                if not isinstance(contact, dict):
+                    print("Invalid contact. Skipped.")
+                    continue
 
-                existing = cur.fetchone()
+                name = contact.get("first_name")
 
-                if existing:
-                    print("\nContact already exists:", name)
-                    print("1. Skip")
-                    print("2. Overwrite")
+                if not name:
+                    print("Contact without name. Skipped.")
+                    continue
 
-                    choice = input("Choose: ")
+                group_name = contact.get("group") or "Other"
 
-                    if choice == "1":
-                        print("Skipped:", name)
+                phones = contact.get("phones") or []
+
+                if not isinstance(phones, list):
+                    print("Invalid phones for:", name)
+                    continue
+
+                valid_phones = []
+
+                for phone in phones:
+                    if not isinstance(phone, dict):
                         continue
 
-                    elif choice == "2":
-                        contact_id = existing[0]
+                    number = phone.get("phone")
+                    phone_type = phone.get("type", "mobile")
 
+                    if not number:
+                        continue
+
+                    phone_type = str(phone_type).strip().lower()
+
+                    if phone_type not in ("home", "work", "mobile"):
+                        print("Invalid phone type for:", name)
+                        continue
+
+                    valid_phones.append((number, phone_type))
+
+                with conn:
+                    with conn.cursor() as cur:
+
+                        # Find contact
                         cur.execute("""
-                            UPDATE contacts
-                            SET email = %s,
-                                birthday = %s,
-                                group_id = (
-                                    SELECT id FROM groups WHERE name = %s
-                                )
-                            WHERE id = %s
-                        """, (
-                            contact.get("email"),
-                            contact.get("birthday"),
-                            contact.get("group"),
-                            contact_id
-                        ))
+                            SELECT id, phone
+                            FROM contacts
+                            WHERE first_name = %s
+                            LIMIT 1
+                        """, (name,))
 
-                        cur.execute(
-                            "DELETE FROM phones WHERE contact_id = %s",
-                            (contact_id,)
-                        )
+                        existing = cur.fetchone()
 
-                    else:
-                        print("Invalid choice. Skipped.")
-                        continue
+                        if existing:
+                            print("\nContact already exists:", name)
+                            print("1. Skip")
+                            print("2. Overwrite")
 
-                else:
-                    if not contact.get("phones"):
-                        print("No phone number for:", name)
-                        continue
+                            choice = input("Choose: ")
 
-                    main_phone = contact["phones"][0]["phone"]
+                            if choice == "1":
+                                print("Skipped:", name)
+                                continue
 
-                    cur.execute("""
-                        INSERT INTO contacts
-                            (first_name, phone, email, birthday, group_id)
-                        VALUES (
-                            %s, %s, %s, %s,
-                            (SELECT id FROM groups WHERE name = %s)
-                        )
-                        RETURNING id
-                    """, (
-                        name,
-                        main_phone,
-                        contact.get("email"),
-                        contact.get("birthday"),
-                        contact.get("group") or "Other"
-                    ))
+                            elif choice != "2":
+                                print("Invalid choice. Skipped.")
+                                continue
 
-                    contact_id = cur.fetchone()[0]
+                            contact_id = existing[0]
 
-                for phone in contact.get("phones", []):
-                    cur.execute("""
-                        INSERT INTO phones(contact_id, phone, type)
-                        VALUES (%s, %s, %s)
-                        ON CONFLICT DO NOTHING
-                    """, (
-                        contact_id,
-                        phone["phone"],
-                        phone["type"]
-                    ))
+                            if valid_phones:
+                                main_phone = valid_phones[0][0]
+                            else:
+                                main_phone = existing[1]
 
-    print("JSON import completed!")
+                            cur.execute("""
+                                INSERT INTO groups(name)
+                                VALUES (%s)
+                                ON CONFLICT (name) DO NOTHING
+                            """, (group_name,))
+
+                            cur.execute("""
+                                SELECT id FROM groups
+                                WHERE name = %s
+                            """, (group_name,))
+
+                            group_id = cur.fetchone()[0]
+
+                            cur.execute("""
+                                UPDATE contacts
+                                SET phone = %s,
+                                    email = %s,
+                                    birthday = %s,
+                                    group_id = %s
+                                WHERE id = %s
+                            """, (
+                                main_phone,
+                                contact.get("email"),
+                                contact.get("birthday"),
+                                group_id,
+                                contact_id
+                            ))
+
+                            cur.execute("""
+                                DELETE FROM phones
+                                WHERE contact_id = %s
+                            """, (contact_id,))
+
+                        else:
+                            if not valid_phones:
+                                print("No phone number for:", name)
+                                continue
+
+                            main_phone = valid_phones[0][0]
+
+                            cur.execute("""
+                                INSERT INTO groups(name)
+                                VALUES (%s)
+                                ON CONFLICT (name) DO NOTHING
+                            """, (group_name,))
+
+                            cur.execute("""
+                                SELECT id FROM groups
+                                WHERE name = %s
+                            """, (group_name,))
+
+                            group_id = cur.fetchone()[0]
+
+                            cur.execute("""
+                                INSERT INTO contacts
+                                    (first_name, phone, email,
+                                     birthday, group_id)
+                                VALUES (%s, %s, %s, %s, %s)
+                                RETURNING id
+                            """, (
+                                name,
+                                main_phone,
+                                contact.get("email"),
+                                contact.get("birthday"),
+                                group_id
+                            ))
+
+                            contact_id = cur.fetchone()[0]
+
+                        # Insert all phone numbers
+                        for number, phone_type in valid_phones:
+                            cur.execute("""
+                                INSERT INTO phones
+                                    (contact_id, phone, type)
+                                VALUES (%s, %s, %s)
+                                ON CONFLICT (contact_id, phone)
+                                DO NOTHING
+                            """, (
+                                contact_id,
+                                number,
+                                phone_type
+                            ))
+
+                print("Imported:", name)
+
+            except Exception as error:
+                print("Error importing", name, ":", error)
+
+        print("\nJSON import completed!")
+
+    finally:
+        conn.close()

@@ -1,0 +1,16 @@
+pygame>=2.0.0
+mutagen>=1.47.0
+cat > README.md <<'EOF'
+# Practice 09 - Game Development with Pygame
+
+This project contains three Python applications developed using Pygame.
+
+## 1. Mickey's Clock
+- Displays the current minutes and seconds.
+- Updates automatically every second.
+- Uses rotation and angles to draw clock hands.
+
+Run:
+```bash
+cd mickeys_clock
+python main.py
